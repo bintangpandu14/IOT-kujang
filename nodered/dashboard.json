@@ -1,0 +1,1517 @@
+[
+    {
+        "id": "c390b250dd2f8427",
+        "type": "tab",
+        "label": "Dashboard",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "d69d197a4b0054ce",
+        "type": "mysql",
+        "z": "c390b250dd2f8427",
+        "mydb": "9ab28ca0fd113980",
+        "name": "",
+        "x": 720,
+        "y": 140,
+        "wires": [
+            [
+                "7f2770c8f367827c"
+            ]
+        ]
+    },
+    {
+        "id": "dcbb5327e3f890b4",
+        "type": "mqtt in",
+        "z": "c390b250dd2f8427",
+        "name": "",
+        "topic": "sensor/data",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "8de3e14246c7b4ed",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 430,
+        "y": 140,
+        "wires": [
+            [
+                "396d13b161560da2",
+                "775549a00cda042a"
+            ]
+        ]
+    },
+    {
+        "id": "396d13b161560da2",
+        "type": "function",
+        "z": "c390b250dd2f8427",
+        "name": "function 3",
+        "func": "const data = msg.payload;\nconst plant = data.plant_name?.trim();\nconst variety = data.variety?.trim();\nlet timestamp = data.timestamp?.trim();\n\nif (!plant || !variety) {\n    node.error(\"Nama tanaman dan varietas wajib diisi.\");\n    return null;\n}\n\nif (!timestamp) {\n    node.error(\"Timestamp wajib dikirim dari perangkat.\");\n    return null;\n}\n\n// 👉 FORMAT DATETIME YANG BENAR UNTUK MYSQL\ntimestamp = timestamp.replace(\"T\", \" \").replace(\"Z\", \"\");\n\nconst parameters = [\n  \"temperature\", \"humidity\", \"tds\", \"co2\", \"conductivity\",\n  \"pH\", \"nitrogen\", \"phosphorus\", \"potassium\", \"salinity\"\n];\n\nlet messages = [];\n\nparameters.forEach(param => {\n    if (data.hasOwnProperty(param) && data[param] !== -1) {\n        messages.push({\n            topic: `\n                INSERT INTO sensor_logs \n                (plant_name, variety, parameter_name, value, timestamp) \n                VALUES (?, ?, ?, ?, ?)\n            `,\n            payload: [plant, variety, param, parseFloat(data[param]), timestamp]\n        });\n    }\n});\n\nreturn [messages];\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 580,
+        "y": 140,
+        "wires": [
+            [
+                "e0933fe82698d38f",
+                "d69d197a4b0054ce"
+            ]
+        ]
+    },
+    {
+        "id": "e0933fe82698d38f",
+        "type": "debug",
+        "z": "c390b250dd2f8427",
+        "name": "debug 5",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 720,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "0de1b7eba2696f7c",
+        "type": "ui-template",
+        "z": "c390b250dd2f8427",
+        "group": "8cdb1a148f74c446",
+        "page": "",
+        "ui": "",
+        "name": "Output",
+        "order": 21,
+        "width": "0",
+        "height": "0",
+        "head": "",
+        "format": "<template>\n  <v-text-field v-model=\"search\" label=\"Cari Tanaman / Varietas\" prepend-inner-icon=\"mdi-magnify\" single-line\n    variant=\"outlined\" hide-details></v-text-field>\n\n  <v-data-table :items=\"msg?.payload\" v-model:search=\"search\" :headers=\"headers\" class=\"elevation-1\" density=\"compact\">\n    <!-- Template kolom dengan satuan -->\n    <template v-for=\"param in paramList\" v-slot:[`item.${param}`]=\"{ item }\" :key=\"param\">\n      {{ item[param] }} {{ getUnit(param) }}\n    </template>\n  </v-data-table>\n</template>\n\n<script>\n  export default {\n  data() {\n    return {\n      search: '',\n      headers: [\n        { title: 'Waktu', value: 'timestamp' },\n        { title: 'Tanaman', value: 'plant_name' },\n        { title: 'Varietas', value: 'variety' },\n        { title: 'Temperature', value: 'temperature' },\n        { title: 'Humidity', value: 'humidity' },\n        { title: 'TDS', value: 'tds' },\n        { title: 'CO₂', value: 'co2' },\n        { title: 'Conductivity', value: 'conductivity' },\n        { title: 'pH', value: 'pH' },\n        { title: 'Nitrogen', value: 'nitrogen' },\n        { title: 'Phosphorus', value: 'phosphorus' },\n        { title: 'Potassium', value: 'potassium' },\n        { title: 'Salinity', value: 'salinity' }\n      ],\n      paramList: [\n        'temperature', 'humidity', 'tds', 'co2', 'conductivity',\n        'pH', 'nitrogen', 'phosphorus', 'potassium', 'salinity'\n      ]\n    }\n  },\n  methods: {\n    getUnit(param) {\n      const units = {\n        temperature: '°C',\n        humidity: '%',\n        tds: 'ppm',\n        co2: 'ppm',\n        conductivity: 'mS/cm',\n        pH: '',\n        nitrogen: 'ppm',\n        phosphorus: 'ppm',\n        potassium: 'ppm',\n        salinity: 'ppt'\n      };\n      return units[param] || '';\n    }\n  }\n}\n</script>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 890,
+        "y": 280,
+        "wires": [
+            [
+                "189a873ced73e07c"
+            ]
+        ]
+    },
+    {
+        "id": "7f2770c8f367827c",
+        "type": "function",
+        "z": "c390b250dd2f8427",
+        "name": "function 4",
+        "func": "msg.topic = `\nSELECT\n  MAX(timestamp) AS timestamp,\n  plant_name,\n  variety,\n  ROUND(MAX(CASE WHEN parameter_name = 'temperature' THEN value END), 2) AS temperature,\n  ROUND(MAX(CASE WHEN parameter_name = 'humidity' THEN value END), 2) AS humidity,\n  ROUND(MAX(CASE WHEN parameter_name = 'tds' THEN value END), 2) AS tds,\n  ROUND(MAX(CASE WHEN parameter_name = 'co2' THEN value END), 2) AS co2,\n  ROUND(MAX(CASE WHEN parameter_name = 'conductivity' THEN value END), 2) AS conductivity,\n  ROUND(MAX(CASE WHEN parameter_name = 'pH' THEN value END), 2) AS pH,\n  ROUND(MAX(CASE WHEN parameter_name = 'nitrogen' THEN value END), 2) AS nitrogen,\n  ROUND(MAX(CASE WHEN parameter_name = 'phosphorus' THEN value END), 2) AS phosphorus,\n  ROUND(MAX(CASE WHEN parameter_name = 'potassium' THEN value END), 2) AS potassium,\n  ROUND(MAX(CASE WHEN parameter_name = 'salinity' THEN value END), 2) AS salinity\nFROM sensor_logs\nGROUP BY plant_name, variety, DATE_FORMAT(timestamp, '%Y-%m-%d %H:%i:%s')\nORDER BY timestamp DESC\nLIMIT 50;\n\n`;\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 560,
+        "y": 280,
+        "wires": [
+            [
+                "8df1b3d8ce9535a5"
+            ]
+        ]
+    },
+    {
+        "id": "8df1b3d8ce9535a5",
+        "type": "mysql",
+        "z": "c390b250dd2f8427",
+        "mydb": "9ab28ca0fd113980",
+        "name": "",
+        "x": 720,
+        "y": 280,
+        "wires": [
+            [
+                "a13688bb4c0bee1d",
+                "0de1b7eba2696f7c"
+            ]
+        ]
+    },
+    {
+        "id": "f52988d15f9307f1",
+        "type": "ui-button",
+        "z": "c390b250dd2f8427",
+        "group": "8cdb1a148f74c446",
+        "name": "",
+        "label": "refresh",
+        "order": 22,
+        "width": 0,
+        "height": 0,
+        "emulateClick": false,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "fa-refresh",
+        "iconPosition": "left",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "buttonColor": "",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 400,
+        "y": 280,
+        "wires": [
+            [
+                "7f2770c8f367827c"
+            ]
+        ]
+    },
+    {
+        "id": "a13688bb4c0bee1d",
+        "type": "debug",
+        "z": "c390b250dd2f8427",
+        "name": "debug 4",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 880,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "e7cab0bdbc9506ed",
+        "type": "mysql",
+        "z": "c390b250dd2f8427",
+        "mydb": "9ab28ca0fd113980",
+        "name": "",
+        "x": 880,
+        "y": 800,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ac4238fa660306dc",
+        "type": "function",
+        "z": "c390b250dd2f8427",
+        "name": "deleteAll",
+        "func": "// Step 1: hapus semua data\nlet msg1 = {\n    topic: \"DELETE FROM sensor_logs;\"\n};\n\n// Step 2: reset id ke 1\nlet msg2 = {\n    topic: \"ALTER TABLE sensor_logs AUTO_INCREMENT = 1;\"\n};\n\nreturn [[msg1, msg2]];  // kirim array ke MySQL node\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 740,
+        "y": 800,
+        "wires": [
+            [
+                "e7cab0bdbc9506ed"
+            ]
+        ]
+    },
+    {
+        "id": "bdab6405f2493b21",
+        "type": "mysql",
+        "z": "c390b250dd2f8427",
+        "mydb": "9ab28ca0fd113980",
+        "name": "",
+        "x": 880,
+        "y": 860,
+        "wires": [
+            [
+                "7115476960c63535"
+            ]
+        ]
+    },
+    {
+        "id": "607b06d6d8f408b4",
+        "type": "function",
+        "z": "c390b250dd2f8427",
+        "name": "selectAll",
+        "func": "msg.topic = \"SELECT * FROM sensor_logs;\"\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 740,
+        "y": 860,
+        "wires": [
+            [
+                "bdab6405f2493b21"
+            ]
+        ]
+    },
+    {
+        "id": "7115476960c63535",
+        "type": "debug",
+        "z": "c390b250dd2f8427",
+        "name": "debug 6",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1020,
+        "y": 860,
+        "wires": []
+    },
+    {
+        "id": "aa971f73e53666e3",
+        "type": "inject",
+        "z": "c390b250dd2f8427",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 580,
+        "y": 860,
+        "wires": [
+            [
+                "607b06d6d8f408b4"
+            ]
+        ]
+    },
+    {
+        "id": "499b3998817b2efb",
+        "type": "inject",
+        "z": "c390b250dd2f8427",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 580,
+        "y": 800,
+        "wires": [
+            [
+                "ac4238fa660306dc"
+            ]
+        ]
+    },
+    {
+        "id": "af694658acb67514",
+        "type": "mysql",
+        "z": "c390b250dd2f8427",
+        "mydb": "9ab28ca0fd113980",
+        "name": "",
+        "x": 720,
+        "y": 380,
+        "wires": [
+            [
+                "62f36a54af4abd96"
+            ]
+        ]
+    },
+    {
+        "id": "5fb9d51492228d7a",
+        "type": "function",
+        "z": "c390b250dd2f8427",
+        "name": "",
+        "func": "// hasil query MySQL: msg.payload = [{variety: \"Cherry\"}, {variety: \"Lokal\"}]\n\nlet varieties = msg.payload.map(row => row.variety);\nmsg.options = varieties;\nmsg.payload = null;  // default pilih varietas pertama\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 860,
+        "y": 440,
+        "wires": [
+            [
+                "20db4bb24851aee8"
+            ]
+        ]
+    },
+    {
+        "id": "1e9fc36804509085",
+        "type": "function",
+        "z": "c390b250dd2f8427",
+        "name": "",
+        "func": "if (!msg.payload || typeof msg.payload !== 'string') {\n    node.error(\"Plant name kosong atau bukan string\");\n    return null;\n}\n\nconst plantName = msg.payload.replace(/'/g, \"''\"); // escape single quote\n\nmsg.topic = `SELECT DISTINCT variety FROM sensor_logs WHERE plant_name = '${plantName}' ORDER BY variety;`;\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 560,
+        "y": 440,
+        "wires": [
+            [
+                "09e7692a8277d3c0"
+            ]
+        ]
+    },
+    {
+        "id": "09e7692a8277d3c0",
+        "type": "mysql",
+        "z": "c390b250dd2f8427",
+        "mydb": "9ab28ca0fd113980",
+        "name": "",
+        "x": 720,
+        "y": 440,
+        "wires": [
+            [
+                "5fb9d51492228d7a"
+            ]
+        ]
+    },
+    {
+        "id": "189a873ced73e07c",
+        "type": "function",
+        "z": "c390b250dd2f8427",
+        "name": "",
+        "func": "msg.topic = \"SELECT DISTINCT plant_name FROM sensor_logs ORDER BY plant_name;\";\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 560,
+        "y": 380,
+        "wires": [
+            [
+                "af694658acb67514"
+            ]
+        ]
+    },
+    {
+        "id": "62f36a54af4abd96",
+        "type": "function",
+        "z": "c390b250dd2f8427",
+        "name": "",
+        "func": "let sensors = flow.get(\"plant_names\") || {};\nmsg.payload.forEach(row => {\n    sensors[row.plant_name] = row.plant_name;\n});\nflow.set(\"plant_names\", sensors);\n\nmsg.options = Object.keys(sensors);\n\n// Hilangkan auto select:\nmsg.payload = null;\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 860,
+        "y": 380,
+        "wires": [
+            [
+                "aac4ae5c205eb691"
+            ]
+        ]
+    },
+    {
+        "id": "aac4ae5c205eb691",
+        "type": "ui-dropdown",
+        "z": "c390b250dd2f8427",
+        "group": "8cdb1a148f74c446",
+        "name": "",
+        "label": "Tanaman",
+        "tooltip": "",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "multiple": false,
+        "chips": false,
+        "clearable": false,
+        "options": [
+            {
+                "label": "",
+                "value": "",
+                "type": "str"
+            }
+        ],
+        "payload": "",
+        "topic": "payload",
+        "topicType": "msg",
+        "className": "",
+        "typeIsComboBox": true,
+        "msgTrigger": "onChange",
+        "x": 1020,
+        "y": 380,
+        "wires": [
+            [
+                "1e9fc36804509085",
+                "5efc96374f7980cf"
+            ]
+        ]
+    },
+    {
+        "id": "20db4bb24851aee8",
+        "type": "ui-dropdown",
+        "z": "c390b250dd2f8427",
+        "group": "8cdb1a148f74c446",
+        "name": "",
+        "label": "Varietas",
+        "tooltip": "",
+        "order": 2,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "multiple": false,
+        "chips": false,
+        "clearable": false,
+        "options": [
+            {
+                "label": "",
+                "value": "",
+                "type": "str"
+            }
+        ],
+        "payload": "",
+        "topic": "payload",
+        "topicType": "msg",
+        "className": "",
+        "typeIsComboBox": true,
+        "msgTrigger": "onChange",
+        "x": 1020,
+        "y": 440,
+        "wires": [
+            [
+                "8b46989fe3ce8e5f"
+            ]
+        ]
+    },
+    {
+        "id": "15938d0fe82e7f2f",
+        "type": "inject",
+        "z": "c390b250dd2f8427",
+        "name": "",
+        "props": [],
+        "repeat": "1",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 370,
+        "y": 380,
+        "wires": [
+            [
+                "189a873ced73e07c"
+            ]
+        ]
+    },
+    {
+        "id": "775549a00cda042a",
+        "type": "debug",
+        "z": "c390b250dd2f8427",
+        "name": "debug 9",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 580,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "986c52ad97c6f497",
+        "type": "function",
+        "z": "c390b250dd2f8427",
+        "name": "function 5",
+        "func": "const data = msg.payload;\nconst timestamp = new Date(data.timestamp).getTime(); // epoch\n\nconst params = [\n  \"temperature\", \"humidity\", \"tds\", \"co2\", \"conductivity\",\n  \"pH\", \"nitrogen\", \"phosphorus\", \"potassium\", \"salinity\"\n];\n\nconst outMsgs = [];\n\nparams.forEach(p => {\n  if (data[p] !== undefined && data[p] !== -1) {\n    outMsgs.push({\n      topic: p,\n      payload: data[p],\n      timestamp: timestamp,\n      parameter: p\n    });\n  }\n});\n\nreturn [outMsgs];\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1820,
+        "y": 400,
+        "wires": [
+            [
+                "5a31204988edf355"
+            ]
+        ]
+    },
+    {
+        "id": "5a31204988edf355",
+        "type": "switch",
+        "z": "c390b250dd2f8427",
+        "name": "",
+        "property": "parameter",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "temperature",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "humidity",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "tds",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "co2",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "conductivity",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "pH",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "nitrogen",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "phosphorus",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "potassium",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "salinity",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 10,
+        "x": 2010,
+        "y": 400,
+        "wires": [
+            [
+                "bed9db314787185f"
+            ],
+            [
+                "fac04c983ba13d34"
+            ],
+            [
+                "d593acc2891e9f68"
+            ],
+            [
+                "8763a2ed0987f404"
+            ],
+            [
+                "4b52af39ea68f533"
+            ],
+            [
+                "3f238e228c4e5791"
+            ],
+            [
+                "30374463016297f9"
+            ],
+            [
+                "dce10952a83b397e"
+            ],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "bed9db314787185f",
+        "type": "ui-chart",
+        "z": "c390b250dd2f8427",
+        "group": "8cdb1a148f74c446",
+        "name": "temperature",
+        "label": "temperature",
+        "order": 3,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "HH:mm",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": "",
+        "ymax": "",
+        "bins": 10,
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": 4,
+        "showLegend": true,
+        "removeOlder": 1,
+        "removeOlderUnit": "3600",
+        "removeOlderPoints": "",
+        "colors": [
+            "#0095ff",
+            "#ff0000",
+            "#ff7f0e",
+            "#2ca02c",
+            "#a347e1",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "textColor": [
+            "#666666"
+        ],
+        "textColorDefault": true,
+        "gridColor": [
+            "#e5e5e5"
+        ],
+        "gridColorDefault": true,
+        "width": "3",
+        "height": "5",
+        "className": "",
+        "interpolation": "linear",
+        "x": 2230,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "fac04c983ba13d34",
+        "type": "ui-chart",
+        "z": "c390b250dd2f8427",
+        "group": "8cdb1a148f74c446",
+        "name": "humidity",
+        "label": "humidity",
+        "order": 6,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "HH:mm",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": "",
+        "ymax": "",
+        "bins": 10,
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": 4,
+        "showLegend": true,
+        "removeOlder": 1,
+        "removeOlderUnit": "3600",
+        "removeOlderPoints": "",
+        "colors": [
+            "#0095ff",
+            "#ff0000",
+            "#ff7f0e",
+            "#2ca02c",
+            "#a347e1",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "textColor": [
+            "#666666"
+        ],
+        "textColorDefault": true,
+        "gridColor": [
+            "#e5e5e5"
+        ],
+        "gridColorDefault": true,
+        "width": "3",
+        "height": "5",
+        "className": "",
+        "interpolation": "linear",
+        "x": 2220,
+        "y": 380,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "d593acc2891e9f68",
+        "type": "ui-chart",
+        "z": "c390b250dd2f8427",
+        "group": "8cdb1a148f74c446",
+        "name": "tds",
+        "label": "tds",
+        "order": 8,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "HH:mm",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": "",
+        "ymax": "",
+        "bins": 10,
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": 4,
+        "showLegend": true,
+        "removeOlder": 1,
+        "removeOlderUnit": "3600",
+        "removeOlderPoints": "",
+        "colors": [
+            "#0095ff",
+            "#ff0000",
+            "#ff7f0e",
+            "#2ca02c",
+            "#a347e1",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "textColor": [
+            "#666666"
+        ],
+        "textColorDefault": true,
+        "gridColor": [
+            "#e5e5e5"
+        ],
+        "gridColorDefault": true,
+        "width": "3",
+        "height": "5",
+        "className": "",
+        "interpolation": "linear",
+        "x": 2210,
+        "y": 420,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "8763a2ed0987f404",
+        "type": "ui-chart",
+        "z": "c390b250dd2f8427",
+        "group": "8cdb1a148f74c446",
+        "name": "co2",
+        "label": "co2",
+        "order": 10,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "HH:mm",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": "",
+        "ymax": "",
+        "bins": 10,
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": 4,
+        "showLegend": true,
+        "removeOlder": 1,
+        "removeOlderUnit": "3600",
+        "removeOlderPoints": "",
+        "colors": [
+            "#0095ff",
+            "#ff0000",
+            "#ff7f0e",
+            "#2ca02c",
+            "#a347e1",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "textColor": [
+            "#666666"
+        ],
+        "textColorDefault": true,
+        "gridColor": [
+            "#e5e5e5"
+        ],
+        "gridColorDefault": true,
+        "width": "3",
+        "height": "5",
+        "className": "",
+        "interpolation": "linear",
+        "x": 2210,
+        "y": 460,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "4b52af39ea68f533",
+        "type": "ui-chart",
+        "z": "c390b250dd2f8427",
+        "group": "8cdb1a148f74c446",
+        "name": "conductivity",
+        "label": "conductivity",
+        "order": 11,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "HH:mm",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": "",
+        "ymax": "",
+        "bins": 10,
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": 4,
+        "showLegend": true,
+        "removeOlder": 1,
+        "removeOlderUnit": "3600",
+        "removeOlderPoints": "",
+        "colors": [
+            "#0095ff",
+            "#ff0000",
+            "#ff7f0e",
+            "#2ca02c",
+            "#a347e1",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "textColor": [
+            "#666666"
+        ],
+        "textColorDefault": true,
+        "gridColor": [
+            "#e5e5e5"
+        ],
+        "gridColorDefault": true,
+        "width": "3",
+        "height": "5",
+        "className": "",
+        "interpolation": "linear",
+        "x": 2230,
+        "y": 500,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "3f238e228c4e5791",
+        "type": "ui-chart",
+        "z": "c390b250dd2f8427",
+        "group": "8cdb1a148f74c446",
+        "name": "pH",
+        "label": "pH",
+        "order": 20,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "HH:mm",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": "",
+        "ymax": "",
+        "bins": 10,
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": 4,
+        "showLegend": true,
+        "removeOlder": 1,
+        "removeOlderUnit": "3600",
+        "removeOlderPoints": "",
+        "colors": [
+            "#0095ff",
+            "#ff0000",
+            "#ff7f0e",
+            "#2ca02c",
+            "#a347e1",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "textColor": [
+            "#666666"
+        ],
+        "textColorDefault": true,
+        "gridColor": [
+            "#e5e5e5"
+        ],
+        "gridColorDefault": true,
+        "width": "3",
+        "height": "5",
+        "className": "",
+        "interpolation": "linear",
+        "x": 2210,
+        "y": 540,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "30374463016297f9",
+        "type": "ui-chart",
+        "z": "c390b250dd2f8427",
+        "group": "8cdb1a148f74c446",
+        "name": "nitrogen",
+        "label": "nitrogen",
+        "order": 17,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "HH:mm",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": "",
+        "ymax": "",
+        "bins": 10,
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": 4,
+        "showLegend": true,
+        "removeOlder": 1,
+        "removeOlderUnit": "3600",
+        "removeOlderPoints": "",
+        "colors": [
+            "#0095ff",
+            "#ff0000",
+            "#ff7f0e",
+            "#2ca02c",
+            "#a347e1",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "textColor": [
+            "#666666"
+        ],
+        "textColorDefault": true,
+        "gridColor": [
+            "#e5e5e5"
+        ],
+        "gridColorDefault": true,
+        "width": "3",
+        "height": "5",
+        "className": "",
+        "interpolation": "linear",
+        "x": 2220,
+        "y": 580,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "dce10952a83b397e",
+        "type": "ui-chart",
+        "z": "c390b250dd2f8427",
+        "group": "8cdb1a148f74c446",
+        "name": "phosphorus",
+        "label": "phosphorus",
+        "order": 15,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "HH:mm",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": "",
+        "ymax": "",
+        "bins": 10,
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": 4,
+        "showLegend": true,
+        "removeOlder": 1,
+        "removeOlderUnit": "3600",
+        "removeOlderPoints": "",
+        "colors": [
+            "#0095ff",
+            "#ff0000",
+            "#ff7f0e",
+            "#2ca02c",
+            "#a347e1",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "textColor": [
+            "#666666"
+        ],
+        "textColorDefault": true,
+        "gridColor": [
+            "#e5e5e5"
+        ],
+        "gridColorDefault": true,
+        "width": "3",
+        "height": "5",
+        "className": "",
+        "interpolation": "linear",
+        "x": 2230,
+        "y": 620,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "a95c7721e3ce1648",
+        "type": "mqtt in",
+        "z": "c390b250dd2f8427",
+        "name": "",
+        "topic": "sensor/data",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "8de3e14246c7b4ed",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 1630,
+        "y": 320,
+        "wires": [
+            [
+                "986c52ad97c6f497",
+                "71603af355598d5c"
+            ]
+        ]
+    },
+    {
+        "id": "0c8cdaad6546c60f",
+        "type": "function",
+        "z": "c390b250dd2f8427",
+        "name": "function 6",
+        "func": "const data = msg.payload;\n\nif (!data || typeof data.plant !== \"string\" || typeof data.variety !== \"string\") {\n  node.error(\"Plant atau variety tidak valid!\", msg);\n  return null;\n}\n\nconst plant = data.plant;\nconst variety = data.variety;\n\n// Log untuk debugging, ini aman:\nnode.warn(\"Plant = \" + plant);\nnode.warn(\"Variety = \" + variety);\n\nmsg.topic = `\nSELECT\n  plant_name,\n  variety,\n  timestamp,\n  ROUND(MAX(CASE WHEN parameter_name = 'temperature' THEN value END), 2) AS temperature,\n  ROUND(MAX(CASE WHEN parameter_name = 'humidity' THEN value END), 2) AS humidity,\n  ROUND(MAX(CASE WHEN parameter_name = 'tds' THEN value END), 2) AS tds,\n  ROUND(MAX(CASE WHEN parameter_name = 'co2' THEN value END), 2) AS co2,\n  ROUND(MAX(CASE WHEN parameter_name = 'conductivity' THEN value END), 2) AS conductivity,\n  ROUND(MAX(CASE WHEN parameter_name = 'pH' THEN value END), 2) AS pH,\n  ROUND(MAX(CASE WHEN parameter_name = 'nitrogen' THEN value END), 2) AS nitrogen,\n  ROUND(MAX(CASE WHEN parameter_name = 'phosphorus' THEN value END), 2) AS phosphorus,\n  ROUND(MAX(CASE WHEN parameter_name = 'potassium' THEN value END), 2) AS potassium,\n  ROUND(MAX(CASE WHEN parameter_name = 'salinity' THEN value END), 2) AS salinity\nFROM sensor_logs\nWHERE plant_name = '${plant}' AND variety = '${variety}'\n  AND timestamp = (\n    SELECT MAX(timestamp) FROM sensor_logs\n    WHERE plant_name = '${plant}' AND variety = '${variety}'\n  )\nGROUP BY plant_name, variety, timestamp\n`;\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1340,
+        "y": 400,
+        "wires": [
+            [
+                "afad2417e682c524"
+            ]
+        ]
+    },
+    {
+        "id": "afad2417e682c524",
+        "type": "mysql",
+        "z": "c390b250dd2f8427",
+        "mydb": "9ab28ca0fd113980",
+        "name": "",
+        "x": 1480,
+        "y": 400,
+        "wires": [
+            [
+                "c095065993589409"
+            ]
+        ]
+    },
+    {
+        "id": "c2ff21342edc6efa",
+        "type": "debug",
+        "z": "c390b250dd2f8427",
+        "name": "debug 8",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1960,
+        "y": 540,
+        "wires": []
+    },
+    {
+        "id": "220dd3788fa21ff6",
+        "type": "join",
+        "z": "c390b250dd2f8427",
+        "name": "",
+        "mode": "custom",
+        "build": "object",
+        "property": "payload",
+        "propertyType": "msg",
+        "key": "topic",
+        "joiner": "\\n",
+        "joinerType": "str",
+        "useparts": false,
+        "accumulate": true,
+        "timeout": "5",
+        "count": "2",
+        "reduceRight": false,
+        "reduceExp": "",
+        "reduceInit": "",
+        "reduceInitType": "num",
+        "reduceFixup": "",
+        "x": 1190,
+        "y": 400,
+        "wires": [
+            [
+                "0c8cdaad6546c60f"
+            ]
+        ]
+    },
+    {
+        "id": "5efc96374f7980cf",
+        "type": "change",
+        "z": "c390b250dd2f8427",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "plant",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 1070,
+        "y": 320,
+        "wires": [
+            [
+                "220dd3788fa21ff6"
+            ]
+        ]
+    },
+    {
+        "id": "8b46989fe3ce8e5f",
+        "type": "change",
+        "z": "c390b250dd2f8427",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "variety",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 1070,
+        "y": 480,
+        "wires": [
+            [
+                "220dd3788fa21ff6"
+            ]
+        ]
+    },
+    {
+        "id": "e6eee9b0df9078ec",
+        "type": "switch",
+        "z": "c390b250dd2f8427",
+        "name": "",
+        "property": "payload",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 1,
+        "x": 1310,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "71603af355598d5c",
+        "type": "debug",
+        "z": "c390b250dd2f8427",
+        "name": "debug 10",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1820,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "c095065993589409",
+        "type": "function",
+        "z": "c390b250dd2f8427",
+        "name": "function 8",
+        "func": "const data = msg.payload;\n\nif (!data || typeof data !== 'object') {\n  node.warn(\"Payload kosong atau bukan object\");\n  return null;\n}\n\nlet ts = data.timestamp;\n\nif (typeof ts === \"string\") {\n  // Normalize timestamp if it comes from MySQL (ISO format with T and Z)\n  if (ts.includes(\"T\") && ts.endsWith(\"Z\")) {\n    ts = ts.replace(\"T\", \" \").replace(\"Z\", \"\");\n  }\n}\n\nconst timestamp = new Date(ts).getTime();\n\nif (isNaN(timestamp)) {\n  node.warn(\"Gagal parse timestamp: \" + data.timestamp);\n  return null;\n}\n\nconst params = [\n  \"temperature\", \"humidity\", \"tds\", \"co2\", \"conductivity\",\n  \"pH\", \"nitrogen\", \"phosphorus\", \"potassium\", \"salinity\"\n];\n\nconst outMsgs = [];\n\nparams.forEach(p => {\n  if (data[p] !== undefined && data[p] !== -1) {\n    outMsgs.push({\n      topic: p,\n      payload: data[p],\n      timestamp: timestamp,\n      parameter: p\n    });\n  }\n});\n\n// Debug log\nnode.warn(\"Output Messages: \");\nnode.warn(outMsgs);\n\nreturn [outMsgs];\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1640,
+        "y": 400,
+        "wires": [
+            [
+                "c2ff21342edc6efa"
+            ]
+        ]
+    },
+    {
+        "id": "9ab28ca0fd113980",
+        "type": "MySQLdatabase",
+        "name": "",
+        "host": "145.79.8.95",
+        "port": "3306",
+        "db": "iotkujang",
+        "tz": "",
+        "charset": "UTF8"
+    },
+    {
+        "id": "8de3e14246c7b4ed",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "145.79.8.95",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "8cdb1a148f74c446",
+        "type": "ui-group",
+        "name": "Dashboard",
+        "page": "c12d1edf888781cc",
+        "width": 6,
+        "height": 1,
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "c12d1edf888781cc",
+        "type": "ui-page",
+        "name": "Dashboard",
+        "ui": "46a2adf3b85cf96c",
+        "path": "/dashboard",
+        "icon": "home",
+        "layout": "notebook",
+        "theme": "c2781a5813bbdb41",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 2,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "46a2adf3b85cf96c",
+        "type": "ui-base",
+        "name": "My Dashboard",
+        "path": "/dashboard",
+        "appIcon": "",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-notification",
+            "ui-control"
+        ],
+        "showPathInSidebar": false,
+        "headerContent": "page",
+        "navigationStyle": "default",
+        "titleBarStyle": "default",
+        "showReconnectNotification": true,
+        "notificationDisplayTime": 1,
+        "showDisconnectNotification": true,
+        "allowInstall": true
+    },
+    {
+        "id": "c2781a5813bbdb41",
+        "type": "ui-theme",
+        "name": "Default Theme",
+        "colors": {
+            "surface": "#ffffff",
+            "primary": "#0094CE",
+            "bgPage": "#eeeeee",
+            "groupBg": "#ffffff",
+            "groupOutline": "#cccccc"
+        },
+        "sizes": {
+            "density": "default",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "12px"
+        }
+    },
+    {
+        "id": "0a60853d7fc38585",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-node-mysql": "2.0.0",
+            "@flowfuse/node-red-dashboard": "1.26.0"
+        }
+    }
+]

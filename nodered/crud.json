@@ -1,0 +1,344 @@
+[
+    {
+        "id": "a40c44e66ef5cad9",
+        "type": "tab",
+        "label": "CRUD",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "0ca0e39170514ea5",
+        "type": "mysql",
+        "z": "a40c44e66ef5cad9",
+        "mydb": "9ab28ca0fd113980",
+        "name": "",
+        "x": 740,
+        "y": 320,
+        "wires": [
+            [
+                "1eb01ebc1b406927"
+            ]
+        ]
+    },
+    {
+        "id": "526b264203ebbf6d",
+        "type": "function",
+        "z": "a40c44e66ef5cad9",
+        "name": "function 1",
+        "func": "const data = msg.payload;\nconst plant = data.plant?.trim(); // handle jika kosong/null\nconst variety = data.variety?.trim();\n\nnode.warn(\"Payload from template: \" + JSON.stringify(msg.payload));\n\nif (!plant) {\n    node.error(\"Nama tanaman tidak boleh kosong!\");\n    return null; // stop jika tidak valid\n}\nif (!variety) {\n    node.error(\"Varietas tidak boleh kosong!\");\n    return null;\n}\n\nconst parameters = [\n    \"humidity\", \"temperature\", \"conductivity\", \"pH\",\n    \"nitrogen\", \"phosphorus\", \"potassium\", \"salinity\", \"tds\", \"co2\"\n];\n\nlet messages = [];\n\nparameters.forEach(param => {\n    const minKey = param + \"_min\";\n    const maxKey = param + \"_max\";\n\n    let min = parseFloat(data[minKey]);\n    let max = parseFloat(data[maxKey]);\n\n    // fallback jika user kosongkan input\n    if (isNaN(min)) min = 0;\n    if (isNaN(max)) max = 0;\n\n    messages.push({\n        topic: `\n            INSERT INTO sensor_thresholds \n            (plant_name, variety, parameter_name, min_value, max_value)\n            VALUES (?, ?, ?, ?, ?)\n            ON DUPLICATE KEY UPDATE \n                min_value = VALUES(min_value), \n                max_value = VALUES(max_value)\n        `,\n        payload: [plant, variety, param, min, max]\n    });\n});\n\n// Kirim array hasil ke node database\nreturn [messages];\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 600,
+        "y": 320,
+        "wires": [
+            [
+                "0ca0e39170514ea5"
+            ]
+        ]
+    },
+    {
+        "id": "11a3eb6d583be14f",
+        "type": "ui-template",
+        "z": "a40c44e66ef5cad9",
+        "group": "509d4b8d681a2b4d",
+        "page": "",
+        "ui": "",
+        "name": "Input",
+        "order": 1,
+        "width": "0",
+        "height": "0",
+        "head": "",
+        "format": "<template>\n      <v-card-title>\n        <h3>Crud Testing</h3>\n      </v-card-title>\n\n      <v-card-text>\n        <v-form @submit.prevent=\"submitForm\">\n          <!-- Input nama tumbuhan -->\n          <v-text-field v-model=\"formData.plant\" label=\"Nama Tumbuhan\" placeholder=\"Contoh: Tomat\"\n            prepend-inner-icon=\"mdi-leaf\" variant=\"outlined\" required></v-text-field>\n\n          <!-- Input varietas tumbuhan -->\n          <v-text-field v-model=\"formData.variety\" label=\"Varietas\" placeholder=\"Contoh: Lokal, Cherry\"\n            prepend-inner-icon=\"mdi-tag\" variant=\"outlined\" required></v-text-field>\n\n          <!-- Tabel parameter -->\n          <v-data-table :headers=\"headers\" :items=\"parameters\" hide-default-footer class=\"mt-2 text-center\">\n            <template v-slot:header.name>\n              <strong class=\"text-center\">Parameter</strong>\n            </template>\n            <template v-slot:header.min>\n              <strong class=\"text-center\">Min</strong>\n            </template>\n            <template v-slot:header.max>\n              <strong class=\"text-center\">Max</strong>\n            </template>\n\n            <!-- Nama parameter -->\n            <template v-slot:item.name=\"{ item }\">\n              <span class=\"text-body-1 font-weight-bold\">{{ item.name }}</span>\n            </template>\n\n            <!-- Spinner MIN -->\n            <template v-slot:item.min=\"{ item }\">\n              <v-row align=\"center\" justify=\"center\" class=\"spinner-wrapper\">\n                <v-icon @click=\"decrease(item.key + '_min')\" class=\"icon-btn\">mdi-minus</v-icon>\n                <input\n                  v-model.number=\"formData[item.key + '_min']\"\n                  type=\"number\"\n                  class=\"spinner-input\"\n                  @input=\"validateNumber(item.key + '_min')\"\n                />\n                <v-icon @click=\"increase(item.key + '_min')\" class=\"icon-btn\">mdi-plus</v-icon>\n              </v-row>\n            </template>\n\n            <!-- Spinner MAX -->\n            <template v-slot:item.max=\"{ item }\">\n              <v-row align=\"center\" justify=\"center\" class=\"spinner-wrapper\">\n                <v-icon @click=\"decrease(item.key + '_max')\" class=\"icon-btn\">mdi-minus</v-icon>\n                <input\n                  v-model.number=\"formData[item.key + '_max']\"\n                  type=\"number\"\n                  class=\"spinner-input\"\n                  @input=\"validateNumber(item.key + '_max')\"\n                />\n                <v-icon @click=\"increase(item.key + '_max')\" class=\"icon-btn\">mdi-plus</v-icon>\n              </v-row>\n            </template>\n          </v-data-table>\n\n          <!-- Tombol submit -->\n          <v-btn type=\"submit\" class=\"mt-4\" color=\"primary\" :loading=\"loading\" :disabled=\"loading\">\n            Kirim\n          </v-btn>\n        </v-form>\n\n        <!-- Tampilkan hasil input -->\n        <div class=\"mt-4\" v-if=\"submittedData\">\n          <h4>Data yang dikirim:</h4>\n          <pre>{{ submittedData }}</pre>\n        </div>\n      </v-card-text>\n</template>\n\n<script>\n  export default {\n  data() {\n    return {\n      loading: false, // NEW: untuk kontrol tombol submit\n      formData: {\n        plant: \"\",\n        variety: \"\",\n        humidity_min: 0,\n        humidity_max: 0,\n        temperature_min: 0,\n        temperature_max: 0,\n        conductivity_min: 0,\n        conductivity_max: 0,\n        pH_min: 0,\n        pH_max: 0,\n        nitrogen_min: 0,\n        nitrogen_max: 0,\n        phosphorus_min: 0,\n        phosphorus_max: 0,\n        potassium_min: 0,\n        potassium_max: 0,\n        salinity_min: 0,\n        salinity_max: 0,\n        tds_min: 0,\n        tds_max: 0,\n        co2_min: 0,\n        co2_max: 0\n      },\n\n      submittedData: null,\n\n      parameters: [\n        { name: \"Humidity\", key: \"humidity\" },\n        { name: \"Temperature\", key: \"temperature\" },\n        { name: \"Conductivity\", key: \"conductivity\" },\n        { name: \"pH\", key: \"pH\" },\n        { name: \"Nitrogen\", key: \"nitrogen\" },\n        { name: \"Phosphorus\", key: \"phosphorus\" },\n        { name: \"Potassium\", key: \"potassium\" },\n        { name: \"Salinity\", key: \"salinity\" },\n        { name: \"TDS\", key: \"tds\" },\n        { name: \"CO2\", key: \"co2\" }\n      ],\n\n      headers: [\n        { text: \"Parameter\", value: \"name\" },\n        { text: \"Min\", value: \"min\" },\n        { text: \"Max\", value: \"max\" }\n      ]\n    };\n  },\n\n  methods: {\n    increase(key) {\n      if (typeof this.formData[key] !== \"number\") {\n        this.formData[key] = 0;\n      }\n      this.formData[key]++;\n    },\n    decrease(key) {\n      if (typeof this.formData[key] !== \"number\") {\n        this.formData[key] = 0;\n      }\n      this.formData[key]--;\n    },\n    validateNumber(key) {\n      const value = this.formData[key];\n      if (isNaN(value)) {\n        this.formData[key] = 0;\n      }\n    },\n    submitForm() {\n      this.loading = true; // disable tombol\n      this.submittedData = JSON.stringify(this.formData, null, 2);\n\n      this.$nextTick(() => {\n        this.send({\n          topic: \"form_crud_submit\",\n          payload: this.formData\n        });\n      });\n\n      setTimeout(() => {\n        this.loading = false;\n      }, 1000); // delay agar tombol bisa dipakai lagi\n    }\n  }\n};\n</script>\n\n<style scoped>\n  .spinner-wrapper {\n    max-width: 150px;\n    margin: auto;\n    gap: 6px;\n  }\n\n  .spinner-input {\n    width: 60px;\n    font-size: 20px;\n    font-weight: 600;\n    text-align: center;\n    background: transparent;\n    border: none;\n    outline: none;\n    color: #333;\n  }\n\n  .spinner-input::-webkit-outer-spin-button,\n  .spinner-input::-webkit-inner-spin-button {\n    -webkit-appearance: none;\n    margin: 0;\n  }\n\n  .spinner-input[type=\"number\"] {\n    -moz-appearance: textfield;\n    /* Firefox */\n  }\n\n  .icon-btn {\n    font-size: 20px;\n    color: black;\n    cursor: pointer;\n    user-select: none;\n  }\n</style>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 450,
+        "y": 320,
+        "wires": [
+            [
+                "526b264203ebbf6d"
+            ]
+        ]
+    },
+    {
+        "id": "b140146141c5c073",
+        "type": "ui-template",
+        "z": "a40c44e66ef5cad9",
+        "group": "509d4b8d681a2b4d",
+        "page": "",
+        "ui": "",
+        "name": "Output",
+        "order": 2,
+        "width": "0",
+        "height": "0",
+        "head": "",
+        "format": "<template>\n  <v-text-field v-model=\"search\" label=\"Cari Parameter\" prepend-inner-icon=\"mdi-magnify\" single-line variant=\"outlined\"\n    hide-details></v-text-field>\n\n  <v-data-table :items=\"msg?.payload\" v-model:search=\"search\" :headers=\"headers\" class=\"elevation-1\" density=\"compact\">\n    <template v-slot:item.min_value=\"{ item }\">\n      {{ item.min_value }} {{ getUnit(item.parameter_name) }}\n    </template>\n\n    <template v-slot:item.max_value=\"{ item }\">\n      {{ item.max_value }} {{ getUnit(item.parameter_name) }}\n    </template>\n  </v-data-table>\n</template>\n\n<script>\n  export default {\n  data() {\n    return {\n      search: '',\n      headers: [\n        { title: 'Tanaman', value: 'plant_name' },\n        { title: 'Varietas', value: 'variety' },\n        { title: 'Parameter', value: 'parameter_name' },\n        { title: 'Min', value: 'min_value' },\n        { title: 'Max', value: 'max_value' }\n      ]\n    }\n  },\n  methods: {\n    getUnit(param) {\n      const units = {\n        temperature: '°C',\n        humidity: '%',\n        conductivity: 'mS/cm',\n        pH: '',\n        nitrogen: 'ppm',\n        phosphorus: 'ppm',\n        potassium: 'ppm',\n        salinity: 'ppt',\n        tds: 'ppm',\n        co2: 'ppm'\n      };\n      return units[param] || '';\n    }\n  }\n}\n</script>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 950,
+        "y": 440,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "1eb01ebc1b406927",
+        "type": "function",
+        "z": "a40c44e66ef5cad9",
+        "name": "function 2",
+        "func": "msg.topic = \"SELECT * FROM sensor_thresholds ORDER BY id, parameter_name;\"\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 600,
+        "y": 440,
+        "wires": [
+            [
+                "427f6b99c67331be"
+            ]
+        ]
+    },
+    {
+        "id": "427f6b99c67331be",
+        "type": "mysql",
+        "z": "a40c44e66ef5cad9",
+        "mydb": "9ab28ca0fd113980",
+        "name": "",
+        "x": 740,
+        "y": 440,
+        "wires": [
+            [
+                "b140146141c5c073",
+                "a44bd5f3bd2b5366"
+            ]
+        ]
+    },
+    {
+        "id": "e944f18b22134672",
+        "type": "ui-button",
+        "z": "a40c44e66ef5cad9",
+        "group": "509d4b8d681a2b4d",
+        "name": "",
+        "label": "refresh",
+        "order": 3,
+        "width": 0,
+        "height": 0,
+        "emulateClick": false,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "fa-refresh",
+        "iconPosition": "left",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "buttonColor": "",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 440,
+        "y": 440,
+        "wires": [
+            [
+                "1eb01ebc1b406927"
+            ]
+        ]
+    },
+    {
+        "id": "7c2030d8ee493cf5",
+        "type": "mysql",
+        "z": "a40c44e66ef5cad9",
+        "mydb": "9ab28ca0fd113980",
+        "name": "",
+        "x": 740,
+        "y": 500,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "aaaf0741748d82ef",
+        "type": "function",
+        "z": "a40c44e66ef5cad9",
+        "name": "deleteAll",
+        "func": "// Step 1: hapus semua data\nlet msg1 = {\n    topic: \"DELETE FROM sensor_thresholds;\"\n};\n\n// Step 2: reset id ke 1\nlet msg2 = {\n    topic: \"ALTER TABLE sensor_thresholds AUTO_INCREMENT = 1;\"\n};\n\nreturn [[msg1, msg2]];  // kirim array ke MySQL node\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 600,
+        "y": 500,
+        "wires": [
+            [
+                "7c2030d8ee493cf5"
+            ]
+        ]
+    },
+    {
+        "id": "64f775fef3cf3f93",
+        "type": "inject",
+        "z": "a40c44e66ef5cad9",
+        "d": true,
+        "name": "",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 450,
+        "y": 500,
+        "wires": [
+            [
+                "aaaf0741748d82ef"
+            ]
+        ]
+    },
+    {
+        "id": "a44bd5f3bd2b5366",
+        "type": "debug",
+        "z": "a40c44e66ef5cad9",
+        "name": "debug 7",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 960,
+        "y": 480,
+        "wires": []
+    },
+    {
+        "id": "9ab28ca0fd113980",
+        "type": "MySQLdatabase",
+        "name": "",
+        "host": "145.79.8.95",
+        "port": "3306",
+        "db": "iotkujang",
+        "tz": "",
+        "charset": "UTF8"
+    },
+    {
+        "id": "509d4b8d681a2b4d",
+        "type": "ui-group",
+        "name": "Crud testing",
+        "page": "f2b681f120552e0d",
+        "width": 6,
+        "height": 1,
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "f2b681f120552e0d",
+        "type": "ui-page",
+        "name": "CRUD",
+        "ui": "46a2adf3b85cf96c",
+        "path": "/crud",
+        "icon": "home",
+        "layout": "notebook",
+        "theme": "c2781a5813bbdb41",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 1,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "46a2adf3b85cf96c",
+        "type": "ui-base",
+        "name": "My Dashboard",
+        "path": "/dashboard",
+        "appIcon": "",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-notification",
+            "ui-control"
+        ],
+        "showPathInSidebar": false,
+        "headerContent": "page",
+        "navigationStyle": "default",
+        "titleBarStyle": "default",
+        "showReconnectNotification": true,
+        "notificationDisplayTime": 1,
+        "showDisconnectNotification": true,
+        "allowInstall": true
+    },
+    {
+        "id": "c2781a5813bbdb41",
+        "type": "ui-theme",
+        "name": "Default Theme",
+        "colors": {
+            "surface": "#ffffff",
+            "primary": "#0094CE",
+            "bgPage": "#eeeeee",
+            "groupBg": "#ffffff",
+            "groupOutline": "#cccccc"
+        },
+        "sizes": {
+            "density": "default",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "12px"
+        }
+    },
+    {
+        "id": "8274c8083eb0361a",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-node-mysql": "2.0.0",
+            "@flowfuse/node-red-dashboard": "1.26.0"
+        }
+    }
+]
